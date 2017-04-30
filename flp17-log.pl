@@ -125,11 +125,12 @@ insert(X,[],[X]).
 /*#########################################################################################################################*/
 solvePuzzle(L) :- write(L),nl,create1D(L,X,S), write(X).
 
-
 %create1D([],[],_).
-create1D([H|T],X,S) :- write(H),nl, write(T),nl,create1D(T,X1), write("test"),nl,append(H,X1,X), length(H,S).
+create1D([H|T],X,S) :- write(H),nl, write(T),nl,test(T,X1),create1D(T,X1), write("test"),nl,append(H,X1,X), length(H,S).
 create1D([H],H).
 
+test([H],H).
+test([H|T],H).
 
 %Moves
 move(H,S,Z) :- 
