@@ -18,13 +18,11 @@ start :-
 		read_lines(LL),
 		split_lines(LL,S),
 		parseInput(S),
-		write(S), nl,
 		createNumbersList(S,F),
 		write(F),nl,
-		write("Čísla vytvořena, pokračujeme dále...\n"),
-		%goal(F,X),
-		%write(X),
-		%nl,
+		write("Vstup vytvořen, pokračujeme dále...\n"),
+		goal(F,X),
+		write("Požadovaný výsledek: "),write(X),nl,
 		halt.
 
 
@@ -57,8 +55,8 @@ split_lines([],[]).
 split_lines([L|Ls],[X|T]) :- split_lines(Ls,T), split_line(L,H), myConcat(H,X).
 
 /*#########################################################################################################################*/
-parseInput(S) :- checkInput(S), write(S), nl.
-parseInput(_) :- write("Neplatný vstup!\n").
+parseInput(S) :- checkInput(S); write("Neplatný vstup!\n").
+
 % Spravnost vstupu
 checkInput([H|T]) :- length(H,L), checkInputField(T,L).
 
@@ -76,19 +74,31 @@ myConcat([],[]). % V pripade, ze chceme [1,2,3,4] odmazat jedny zavorky u X1
 myConcat([H|T],X) :- listConcat(H,X1), myConcat(T,X2),append([X1],X2,X).
 
 % Vytvoreni cile
-goal(I,X) :- write(I), nl, createGoal(I,I1),!,predsort(nthcompare,I1,X).
+goal([H|T],X) :- write(I), nl, createGoal([H|T],I1),!,length(H,L), splitList(I1,L,X).
 
-createGoal([H],[X]) :- write("bla"),write(H),nl,insert_sort(H,X).
-createGoal([H|T],X) :- write("blo"),write(H),nl,insert_sort(H,X1), createGoal(T,X2), append([X1],X2,X).
-createGoal([H|T],X) :- write("blu"),write(H),nl,insert_sort(H,X1), createGoal(T,X2), append(X2,[X1],X).
+% Vytvoreni cilove posloupnosti
+createGoal([H|T],F):- createGoal(T,X1),!, length(H,K), write(K),nl,append(H,X1,X),insert_sort(X,F).
+createGoal([H],H).
+
+% Rozdeleni pozadovaneho vysledku
+splitList([],S,[]).
+splitList(L, S, X) :-
+    append(A, B, L),
+    length(A, S),
+    length(B, N),
+	splitList(B,S,A1),!,
+	myAppend([A],A1,X).
+
+myAppend(A,[],A).
+myAppend(A,B,C) :- append(A,B,C).
 
 
-%nthcompare(<,[_|_],[*|_]).
-%nthcompare(<,[*|_],[_|_]).
+% predsort, funkce pro predsort na razeni seznamu
 nthcompare(<,[H1|_],[H2|_]) :- H1 < H2.
 nthcompare(>,_,_).
 
 
+% Vytvoreni cisel z atomu
 createNumbersList([],[]).
 createNumbersList([H|T],X) :- parseAtoms(H,X1),!,createNumbersList(T,X2),append([X1],X2,X).
 createNumbersList([H],[X]) :- parseAtoms(H,X).
@@ -100,15 +110,15 @@ parseAtoms([*],[*]).
 parseAtoms([H],[X]) :- atom_number(H,X).
 
 
-
-
 % Prevzaty insert sort
 insert_sort(List,Sorted):-i_sort(List,[],Sorted).
 i_sort([],Acc,Acc).
-i_sort([H|T],Acc,Sorted):-insert(H,Acc,NAcc),i_sort(T,NAcc,Sorted).
+i_sort([H|T],Acc,Sorted):-insert(H,Acc,NAcc),!,i_sort(T,NAcc,Sorted).
    
-insert(*,[Y],[Y|*]).
-insert(Y,[*],[*|Y]).
+insert(*,Y,Z) :- !,append(Y,[*],Z).
+insert(Y,*,Z) :- !,append(Y,[*],Z).
+insert(Y,[*],[Y,*]).
+%insert(Y,[*],Z) :- append(Y,[*],Z).
 insert(X,[Y|T],[Y|NT]):-X>Y,insert(X,T,NT).
 insert(X,[Y|T],[X,Y|T]):-X=<Y.
 insert(X,[],[X]).
