@@ -9,8 +9,6 @@ preklad: swipl -q -g start -o flp17-log -c flp17-log.pl
 spusteni: ./flp17-log < input
 */
 
-finalState([1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,x]).
-
 % Main
 start :-
 		write("Patnáctka!\n"),
@@ -23,6 +21,8 @@ start :-
 		write("Vstup vytvořen, pokračujeme dále...\n"),
 		goal(F,X),
 		write("Požadovaný výsledek: "),write(X),nl,
+		write("Řeším puzzle...\n"),
+		!,solvePuzzle(F),
 		halt.
 
 
@@ -74,18 +74,18 @@ myConcat([],[]). % V pripade, ze chceme [1,2,3,4] odmazat jedny zavorky u X1
 myConcat([H|T],X) :- listConcat(H,X1), myConcat(T,X2),append([X1],X2,X).
 
 % Vytvoreni cile
-goal([H|T],X) :- write(I), nl, createGoal([H|T],I1),!,length(H,L), splitList(I1,L,X).
+goal([H|T],X) :- createGoal([H|T],I1),!,length(H,L), splitList(I1,L,X).
 
 % Vytvoreni cilove posloupnosti
-createGoal([H|T],F):- createGoal(T,X1),!, length(H,K), write(K),nl,append(H,X1,X),insert_sort(X,F).
+createGoal([H|T],F):- createGoal(T,X1),!,append(H,X1,X),insert_sort(X,F).
 createGoal([H],H).
 
 % Rozdeleni pozadovaneho vysledku
-splitList([],S,[]).
+splitList([],_,[]).
 splitList(L, S, X) :-
     append(A, B, L),
     length(A, S),
-    length(B, N),
+    length(B, _),
 	splitList(B,S,A1),!,
 	myAppend([A],A1,X).
 
@@ -99,7 +99,7 @@ nthcompare(>,_,_).
 
 
 % Vytvoreni cisel z atomu
-createNumbersList([],[]).
+createNumbersList([],[]).					% Momentalni vystup je 1D pole, pro 2D pridat [] k X1 v apppend
 createNumbersList([H|T],X) :- parseAtoms(H,X1),!,createNumbersList(T,X2),append([X1],X2,X).
 createNumbersList([H],[X]) :- parseAtoms(H,X).
 
@@ -118,48 +118,31 @@ i_sort([H|T],Acc,Sorted):-insert(H,Acc,NAcc),!,i_sort(T,NAcc,Sorted).
 insert(*,Y,Z) :- !,append(Y,[*],Z).
 insert(Y,*,Z) :- !,append(Y,[*],Z).
 insert(Y,[*],[Y,*]).
-%insert(Y,[*],Z) :- append(Y,[*],Z).
 insert(X,[Y|T],[Y|NT]):-X>Y,insert(X,T,NT).
 insert(X,[Y|T],[X,Y|T]):-X=<Y.
 insert(X,[],[X]).
 
 /*#########################################################################################################################*/
-
-/* nacte zadany pocet radku */
-read_lines2([],0).
-read_lines2(Ls,N) :-
-	N > 0,
-	read_line(L,_),
-	N1 is N-1,
-	read_lines2(LLs, N1),
-	Ls = [L|LLs].
-
-/* vypise seznam radku (kazdy radek samostatne) */
-write_lines2([]).
-write_lines2([H|T]) :- writeln(H), write_lines2(T). %(writeln je "knihovni funkce")
-
-/* rozdeli radek na podseznamy -- pracuje od konce radku */
-%zalozit prvni (tzn. posledni) seznam:
-split_line2([],[[]]) :- !.
-%pridat novy seznam:
-split_line2([' '|T], [[]|S1]) :- !, split_line2(T,S1).
-%pridat novy seznam, uchovat oddelujici znak:
-split_line2([H|T], [[],[H]|S1]) :- (H=','; H=')'; H='('), !, split_line2(T,S1).
-%pridat znak do existujiciho seznamu:
-split_line2([H|T], [[H|G]|S1]) :- split_line2(T,[G|S1]).
+solvePuzzle(L) :- write(L),nl,create1D(L,X,S), write(X).
 
 
-/* pro vsechny radky vstupu udela split_line2 */
-% vstupem je seznam radku (kazdy radek je seznam znaku)
-split_lines2([],[]).
-split_lines2([L|Ls],[H|T]) :- split_lines2(Ls,T), split_line2(L,H).
+%create1D([],[],_).
+create1D([H|T],X,S) :- write(H),nl, write(T),nl,create1D(T,X1), write("test"),nl,append(H,X1,X), length(H,S).
+create1D([H],H).
 
-/* nacte N radku vstupu, zpracuje, vypise */
-start2(N) :-
-		prompt(_, ''),
-		read_lines2(LL, N),
-		split_lines2(LL,S),
-		write_lines2(S).
+
+%Moves
+move(H,S,Z) :- 
+	write("right"),nl, nth1(I,H,*), I1 is I+1, write(I), nl, I mod S =\= 0, write(I1), nl, delete(H,*,N), nth1(I1,Z,*,N).
+
+move(H,S,Z) :- 
+	write("left"),nl, nth1(I,H,*), I1 is I-1, I1 > 0, write(I), nl, I mod S =\= 1, write(I1), nl, delete(H,*,N), nth1(I1,Z,*,N). 
+
+move(H,S,Z) :- 
+	write("up"),nl, nth1(I,H,*), I1 is I+S, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
+
+move(H,S,Z) :- 
+	write("right"),nl, nth1(I,H,*), I1 is I-S, I1 > 0, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
 
 
 /*#########################################################################################################################*/
