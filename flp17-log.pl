@@ -1,9 +1,9 @@
-/** FLP 2015
-Toto je ukazkovy soubor zpracovani vstupu v prologu.
-Tento soubor muzete v projektu libovolne pouzit.
+/** FLP 2017
+Implementace logicke hry Patnactka
+Autor: Jakub Stejskal
 
-autor: Martin Hyrs, ihyrs@fit.vutbr.cz
-
+Nacitani vstupu vytvoril: Martin Hyrs, ihyrs@fit.vutbr.cz
+(Prevzato jakozto doporuceni na cviceni)
 
 preklad: swipl -q -g start -o flp17-log -c flp17-log.pl
 spusteni: ./flp17-log < input
@@ -13,17 +13,17 @@ spusteni: ./flp17-log < input
 
 % Main
 start :-
-		write("Patnáctka!\n"),
+		%write("Patnáctka!\n"),
 		prompt(_, ''),
 		read_lines(LL),
 		split_lines(LL,S),
 		parseInput(S),
 		createNumbersList(S,F),
-		write(F),nl,
-		write("Vstup vytvořen, pokračujeme dále...\n"),
+		%write(F),nl,
+		%write("Vstup vytvořen, pokračujeme dále...\n"),
 		goal(F,X),
-		write("Požadovaný výsledek: "),write(X),nl,
-		write("Řeším puzzle...\n"),
+		%write("Požadovaný výsledek: "),write(X),nl,
+		%write("Řeším puzzle...\n"),
 		!,solvePuzzle(F,X),
 		halt.
 
@@ -57,7 +57,8 @@ split_lines([],[]).
 split_lines([L|Ls],[X|T]) :- split_lines(Ls,T), split_line(L,H), myConcat(H,X).
 
 /*#########################################################################################################################*/
-parseInput(S) :- checkInput(S); write("Neplatný vstup!\n").
+/* Vlastní řešení */
+parseInput(S) :- checkInput(S); write("Neplatný vstup!\n"), halt(1).
 
 % Spravnost vstupu
 checkInput([H|T]) :- length(H,L), checkInputField(T,L).
@@ -94,12 +95,7 @@ splitList(L, S, X) :-
 myAppend(A,[],A).
 myAppend(A,B,C) :- append(A,B,C).
 
-% predsort, funkce pro predsort na razeni seznamu
-nthcompare(<,[H1|_],[H2|_]) :- H1 < H2.
-nthcompare(>,_,_).
-
-
-% Vytvoreni cisel z atomu
+% Vytvoreni seznamu cisel ze seznamu atomu
 createNumbersList([],[]).					% Momentalni vystup je 1D pole, pro 2D pridat [] k X1 v apppend
 createNumbersList([H|T],X) :- parseAtoms(H,X1),!,createNumbersList(T,X2),append([X1],X2,X).
 createNumbersList([H],[X]) :- parseAtoms(H,X).
@@ -111,7 +107,8 @@ parseAtoms([*],[*]).
 parseAtoms([H],[X]) :- atom_number(H,X).
 
 
-% Prevzaty insert sort
+% Prevzaty insert sort a upraveny pro praci s *
+% Zdroj: http://kti.ms.mff.cuni.cz/~bartak/prolog/sorting.html
 insert_sort(List,Sorted):-i_sort(List,[],Sorted).
 i_sort([],Acc,Acc).
 i_sort([H|T],Acc,Sorted):-insert(H,Acc,NAcc),!,i_sort(T,NAcc,Sorted).
@@ -124,14 +121,18 @@ insert(X,[Y|T],[X,Y|T]):-X=<Y.
 insert(X,[],[X]).
 
 /*#########################################################################################################################*/
+% Hlavni funkce co spusti reseni a inicializuje dynamicke predikaty
 solvePuzzle(L,Goal) :- 
-	write("Vytvoření vstupu: "), write(L),nl,create1D(L,X,S),
-	write("Vytvoření cíle: "), write(Goal),nl,create1D(Goal,Y,_), 
-	write("Vstup: "),write(X),nl,write("Cíl: "),write(Y),nl, 
+	%write("Vytvoření vstupu: "), write(L),nl,
+	create1D(L,X,S),
+	%write("Vytvoření cíle: "), write(Goal),nl,
+	create1D(Goal,Y,_), 
+	%write("Vstup: "),write(X),nl,write("Cíl: "),write(Y),nl, 
 	assert(nextState(X)), 
-	write("Spouštím solve..."),nl, 
+	%write("Spouštím solve..."),nl, 
 	solving(S,Y).
 
+% Vytvoreni 1D seznamu ze vstupu
 create1D([H|T],X,S) :- flatten([H|T],X), length(H,S).
 
 % Zdroj - https://rosettacode.org/wiki/Flatten_a_list#Prolog
@@ -148,7 +149,7 @@ flatten([H|T], TailList, List) :- !,
 flatten(NonList, T, [NonList|T]).
 
 
-% Moves
+% Posuny - jednotlive posuny prazdneho policka
 right(H,S,Z) :- 
 	nth1(I,H,*), I1 is I+1, I mod S =\= 0, delete(H,*,N), nth1(I1,Z,*,N).
 
@@ -161,17 +162,7 @@ up(H,S,Z) :-
 down(H,S,Z) :- 
 	nth1(I,H,*), I1 is I-S, I1 > 0, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
 
-/*
-move(Operation,Input,Size,Visited,Output,OutputNew,NextState,VisitedNew) :- 
-	call(Operation,Input,Size,NextState),
-	\+ member(NextState,Visited), 
-	write("Visited: "),write(Visited),nl,
-	write("NextState: "),write(NextState),nl,
-	append(Visited,[NextState],VisitedNew),
-	append(Output,[NextState],OutputNew),
-	write(NextState),nl.
-*/
-
+% Predikat pro udelani kroku a potrebnych veci okolo
 move(Operation,Input,Size) :- 
 	(call(Operation,Input,Size,NextState) ->
 		%write("NextState: "), write(NextState),nl,
@@ -183,7 +174,7 @@ move(Operation,Input,Size) :-
 		)
 	).
 
-% Prohledavani
+% Prohledavani stavoveho prostoru
 solving(Size,Goal) :- 
 	nextState(Input),
 	%write("Input: "), write(Input),nl,
@@ -212,54 +203,21 @@ solving(Size,Goal) :-
 		retract(nextState(Input)),
 		solving(Size,Goal)
 	).
-/*
-solving(Input,Visited,Size,Output,Goal) :- 
-	write("right"),nl,
-	move(right,Input,Size),
-	(NextState == Goal -> 
-		write("Konec"),nl, write(OutputNew);
-		solving(NextState,VisitedNew,Size,OutputNew,Goal));
-	write("left"),nl,
-	move(left,Input,Size),
-	(NextState == Goal -> 
-		write("Konec"),nl, write(OutputNew);
-		solving(NextState,VisitedNew,Size,OutputNew,Goal));
-	write("up"),nl,
-	move(up,Input,Size),
-	(NextState == Goal -> 
-		write("Konec"),nl, write(OutputNew);
-		solving(NextState,VisitedNew,Size,OutputNew,Goal));
-	write("down"),nl,
-	move(down,Input,Size),
-	(NextState == Goal -> 
-		write("Konec"),nl, write(OutputNew);
-		solving(NextState,VisitedNew,Size,OutputNew,Goal));
-*/
-/*
-solving(Input,Visited,S,Output,Goal) :- 
-	move(Input,S,States),
-	write("States:  "), write(States), nl,
-	\+ member(States,Visited), 
-	append(Visited,[States],VisitedNew), 
-	append(Output,[States],OutputNew),
-	States == Goal -> write("Konec"),nl, write(OutputNew); 
-	write("Visited: "),write(VisitedNew),nl,
-	solving(States,VisitedNew,S,OutputNew,Goal).
-*/
 
 
-
+% Ziskani vysledku z databaze
 getPath(Final,Last,PathIn,Size) :- 
 	(visitedState(Parent,Last) -> 
 		append(PathIn,[Parent],PathTmp),
-		write(PathTmp),nl,getPath(Final,Parent,PathTmp,Size);
+		%write(PathTmp),nl,
+		getPath(Final,Parent,PathTmp,Size);
 		reverseList(PathIn,Path,[]),
 		append(Path,[Final],Output),
-		write("Cesta: "), write(Output),nl,
+		%write("Cesta: "), write(Output),nl,
 		printPath(Output,Size,0)
 	).
  	
-
+% Vypis nalezeneho reseni
 printPath([],_,_).
 printPath([H|T],Size,Loop) :- 
 	%write(H),nl,
@@ -267,6 +225,7 @@ printPath([H|T],Size,Loop) :-
 	newLine(T),
 	printPath(T,Size,Loop).
 
+% Vypis elementu jednotlivych poli
 writeElement([],_,_).
 writeElement([H|T],Size,Loop) :- 
 	write(H),
@@ -276,13 +235,16 @@ writeElement([H|T],Size,Loop) :-
 	),
 	writeElement(T,Size,LoopNew).  
 
+% new line na konci vypisu
 newLine([]).
 newLine([_]) :- nl.
 newLine([_|_]) :- nl.
 
+% Inkrementace
 incr(X, X1) :-
     X1 is X+1.
 
+% Obraceni listu
 reverseList([],Z,Z).
 reverseList([H|T],Z,Acc) :- reverseList(T,Z,[H|Acc]).
 
