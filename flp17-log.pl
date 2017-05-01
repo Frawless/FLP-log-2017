@@ -8,6 +8,8 @@ autor: Martin Hyrs, ihyrs@fit.vutbr.cz
 preklad: swipl -q -g start -o flp17-log -c flp17-log.pl
 spusteni: ./flp17-log < input
 */
+:- dynamic nextState/1, visitedState/2.
+
 
 % Main
 start :-
@@ -22,7 +24,7 @@ start :-
 		goal(F,X),
 		write("Požadovaný výsledek: "),write(X),nl,
 		write("Řeším puzzle...\n"),
-		!,solvePuzzle(F),
+		!,solvePuzzle(F,X),
 		halt.
 
 
@@ -92,7 +94,6 @@ splitList(L, S, X) :-
 myAppend(A,[],A).
 myAppend(A,B,C) :- append(A,B,C).
 
-
 % predsort, funkce pro predsort na razeni seznamu
 nthcompare(<,[H1|_],[H2|_]) :- H1 < H2.
 nthcompare(>,_,_).
@@ -123,28 +124,167 @@ insert(X,[Y|T],[X,Y|T]):-X=<Y.
 insert(X,[],[X]).
 
 /*#########################################################################################################################*/
-solvePuzzle(L) :- write(L),nl,create1D(L,X,S), write(X).
+solvePuzzle(L,Goal) :- 
+	write("Vytvoření vstupu: "), write(L),nl,create1D(L,X,S),
+	write("Vytvoření cíle: "), write(Goal),nl,create1D(Goal,Y,_), 
+	write("Vstup: "),write(X),nl,write("Cíl: "),write(Y),nl, 
+	assert(nextState(X)), 
+	write("Spouštím solve..."),nl, 
+	solving(S,Y).
 
-%create1D([],[],_).
-create1D([H|T],X,S) :- write(H),nl, write(T),nl,test(T,X1),create1D(T,X1), write("test"),nl,append(H,X1,X), length(H,S).
-create1D([H],H).
+create1D([H|T],X,S) :- flatten([H|T],X), length(H,S).
 
-test([H],H).
-test([H|T],H).
+% Zdroj - https://rosettacode.org/wiki/Flatten_a_list#Prolog
+flatten(List, FlatList) :-
+	flatten(List, [], FlatList).
+ 
+flatten(Var, T, [Var|T]) :-
+	var(Var), !.
+flatten([], T, T) :- !.
+flatten([H|T], TailList, List) :- !,
+	flatten(H, FlatTail, List),
+	flatten(T, TailList, FlatTail).
+ 
+flatten(NonList, T, [NonList|T]).
 
-%Moves
-move(H,S,Z) :- 
-	write("right"),nl, nth1(I,H,*), I1 is I+1, write(I), nl, I mod S =\= 0, write(I1), nl, delete(H,*,N), nth1(I1,Z,*,N).
 
-move(H,S,Z) :- 
-	write("left"),nl, nth1(I,H,*), I1 is I-1, I1 > 0, write(I), nl, I mod S =\= 1, write(I1), nl, delete(H,*,N), nth1(I1,Z,*,N). 
+% Moves
+right(H,S,Z) :- 
+	nth1(I,H,*), I1 is I+1, I mod S =\= 0, delete(H,*,N), nth1(I1,Z,*,N).
 
-move(H,S,Z) :- 
-	write("up"),nl, nth1(I,H,*), I1 is I+S, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
+left(H,S,Z) :- 
+	nth1(I,H,*), I1 is I-1, I1 > 0, I mod S =\= 1, delete(H,*,N), nth1(I1,Z,*,N). 
 
-move(H,S,Z) :- 
-	write("right"),nl, nth1(I,H,*), I1 is I-S, I1 > 0, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
+up(H,S,Z) :- 
+	nth1(I,H,*), I1 is I+S, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
 
+down(H,S,Z) :- 
+	nth1(I,H,*), I1 is I-S, I1 > 0, nth1(I1,H,M), delete(H,M,N1),delete(N1,*,N), nth1(I,Z1,M,N),nth1(I1,Z,*,Z1). 
+
+/*
+move(Operation,Input,Size,Visited,Output,OutputNew,NextState,VisitedNew) :- 
+	call(Operation,Input,Size,NextState),
+	\+ member(NextState,Visited), 
+	write("Visited: "),write(Visited),nl,
+	write("NextState: "),write(NextState),nl,
+	append(Visited,[NextState],VisitedNew),
+	append(Output,[NextState],OutputNew),
+	write(NextState),nl.
+*/
+
+move(Operation,Input,Size) :- 
+	(call(Operation,Input,Size,NextState) ->
+		%write("NextState: "), write(NextState),nl,
+		(\+ visitedState(NextState,_) -> 
+			%write("Vkladani: "),write(NextState),nl,
+			(\+ visitedState(Input,NextState) -> assert(visitedState(Input,NextState))
+			), 
+			assert(nextState(NextState))
+		)
+	).
+
+% Prohledavani
+solving(Size,Goal) :- 
+	nextState(Input),
+	%write("Input: "), write(Input),nl,
+	(Input == Goal -> 
+		%write("Konec: "), write(Input),nl, 
+		getPath(Input,Input,[],Size),halt
+	;
+		move(right,Input,Size),
+		move(left,Input,Size),
+		move(up,Input,Size),
+		move(down,Input,Size),
+		retract(nextState(Input)),
+		solving(Size,Goal);
+		move(left,Input,Size),
+		move(up,Input,Size),
+		move(down,Input,Size),
+		retract(nextState(Input)),
+		solving(Size,Goal);
+		move(up,Input,Size),
+		move(down,Input,Size),
+		retract(nextState(Input)),
+		solving(Size,Goal);
+		move(down,Input,Size),
+		retract(nextState(Input)),
+		solving(Size,Goal);
+		retract(nextState(Input)),
+		solving(Size,Goal)
+	).
+/*
+solving(Input,Visited,Size,Output,Goal) :- 
+	write("right"),nl,
+	move(right,Input,Size),
+	(NextState == Goal -> 
+		write("Konec"),nl, write(OutputNew);
+		solving(NextState,VisitedNew,Size,OutputNew,Goal));
+	write("left"),nl,
+	move(left,Input,Size),
+	(NextState == Goal -> 
+		write("Konec"),nl, write(OutputNew);
+		solving(NextState,VisitedNew,Size,OutputNew,Goal));
+	write("up"),nl,
+	move(up,Input,Size),
+	(NextState == Goal -> 
+		write("Konec"),nl, write(OutputNew);
+		solving(NextState,VisitedNew,Size,OutputNew,Goal));
+	write("down"),nl,
+	move(down,Input,Size),
+	(NextState == Goal -> 
+		write("Konec"),nl, write(OutputNew);
+		solving(NextState,VisitedNew,Size,OutputNew,Goal));
+*/
+/*
+solving(Input,Visited,S,Output,Goal) :- 
+	move(Input,S,States),
+	write("States:  "), write(States), nl,
+	\+ member(States,Visited), 
+	append(Visited,[States],VisitedNew), 
+	append(Output,[States],OutputNew),
+	States == Goal -> write("Konec"),nl, write(OutputNew); 
+	write("Visited: "),write(VisitedNew),nl,
+	solving(States,VisitedNew,S,OutputNew,Goal).
+*/
+
+
+
+getPath(Final,Last,PathIn,Size) :- 
+	(visitedState(Parent,Last) -> 
+		append(PathIn,[Parent],PathTmp),
+		write(PathTmp),nl,getPath(Final,Parent,PathTmp,Size);
+		reverseList(PathIn,Path,[]),
+		append(Path,[Final],Output),
+		write("Cesta: "), write(Output),nl,
+		printPath(Output,Size,0)
+	).
+ 	
+
+printPath([],_,_).
+printPath([H|T],Size,Loop) :- 
+	%write(H),nl,
+	writeElement(H,Size,Loop), 
+	newLine(T),
+	printPath(T,Size,Loop).
+
+writeElement([],_,_).
+writeElement([H|T],Size,Loop) :- 
+	write(H),
+	incr(Loop,LoopNew),
+	%write(LoopNew),nl, 
+	(LoopNew mod Size =\= 0 -> write(" "); write("\n")
+	),
+	writeElement(T,Size,LoopNew).  
+
+newLine([]).
+newLine([_]) :- nl.
+newLine([_|_]) :- nl.
+
+incr(X, X1) :-
+    X1 is X+1.
+
+reverseList([],Z,Z).
+reverseList([H|T],Z,Acc) :- reverseList(T,Z,[H|Acc]).
 
 /*#########################################################################################################################*/
 
